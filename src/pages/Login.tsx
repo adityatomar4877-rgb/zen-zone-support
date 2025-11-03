@@ -3,38 +3,51 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Flower2, User, Briefcase, Shield, Eye, EyeOff } from "lucide-react";
+import {
+  Flower2,
+  User,
+  Briefcase,
+  Shield,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { toast } from "sonner";
 
-type UserRole = 'student' | 'counsellor' | 'administrator';
+type UserRole = "student" | "counsellor" | "administrator";
 
 const Login = () => {
   const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
+  const [selectedRole, setSelectedRole] = useState<UserRole>("student");
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // Role-specific fields
-  const [studentId, setStudentId] = useState('');
-  const [department, setDepartment] = useState('');
-  const [year, setYear] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
-  const [specialization, setSpecialization] = useState('');
-  const [adminCode, setAdminCode] = useState('');
+  const [studentId, setStudentId] = useState("");
+  const [department, setDepartment] = useState("");
+  const [year, setYear] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [specialization, setSpecialization] = useState("");
+  const [adminCode, setAdminCode] = useState("");
 
   useEffect(() => {
-    // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate('/');
+        navigate("/");
       }
     });
   }, [navigate]);
@@ -42,115 +55,170 @@ const Login = () => {
   const roleIcons = {
     student: <User className="w-8 h-8" />,
     counsellor: <Briefcase className="w-8 h-8" />,
-    administrator: <Shield className="w-8 h-8" />
+    administrator: <Shield className="w-8 h-8" />,
   };
 
   const roleDescriptions = {
-    student: 'Access mental health resources, book counseling sessions, and track your wellness journey',
-    counsellor: 'Manage appointments, provide support to students, and access professional resources',
-    administrator: 'Manage platform settings, view analytics, and oversee system operations'
+    student:
+      "Access mental health resources, book counseling sessions, and track your wellness journey",
+    counsellor:
+      "Manage appointments, provide support to students, and access professional resources",
+    administrator:
+      "Manage platform settings, view analytics, and oversee system operations",
   };
 
   const handleSubmit = async () => {
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
     setLoading(true);
 
     try {
       if (!email || !password) {
-        throw new Error('Email and password are required');
+        throw new Error("Email and password are required");
       }
 
       if (!isLogin && password !== confirmPassword) {
-        throw new Error('Passwords do not match');
+        throw new Error("Passwords do not match");
       }
 
       if (!isLogin && password.length < 6) {
-        throw new Error('Password must be at least 6 characters');
+        throw new Error("Password must be at least 6 characters");
       }
 
       if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+        // LOGIN FLOW
+        const { data: authData, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
 
-        if (error) throw error;
+        if (signInError) throw signInError;
 
-        // Verify user role
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
+        console.log("Login successful, user:", authData.user);
+
+        // Verify user role matches selected role
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", authData.user.id)
           .single();
+
+        console.log("Profile check:", profile, "Error:", profileError);
 
         if (profile && profile.role !== selectedRole) {
           await supabase.auth.signOut();
-          throw new Error('Invalid credentials for this role');
+          throw new Error(
+            `Invalid credentials for ${selectedRole} role. Please select the correct role.`
+          );
         }
 
-        setSuccess('Login successful! Redirecting...');
-        setTimeout(() => navigate('/'), 1500);
-      } else {
-        // Sign up
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-              role: selectedRole
-            }
+        toast.success("Login successful!");
+
+        setTimeout(() => {
+          if (profile?.role === "administrator") {
+            navigate("/admin-dashboard");
+          } else if (profile?.role === "counsellor") {
+            navigate("/counsellor-dashboard");
+          } else {
+            navigate("/student-dashboard");
           }
-        });
+        }, 1000);
+      } else {
+        // SIGNUP FLOW
 
-        if (error) throw error;
+        if (selectedRole === "administrator" && adminCode !== "ADMIN2024") {
+          throw new Error("Invalid administrator code");
+        }
 
-        // Create profile
+        if (selectedRole === "student") {
+          if (!studentId || !department || !year) {
+            throw new Error("Please fill in all student information");
+          }
+        } else if (selectedRole === "counsellor") {
+          if (!licenseNumber || !specialization) {
+            throw new Error("Please fill in all counsellor information");
+          }
+        }
+
+        const { data: authData, error: signUpError } =
+          await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: fullName,
+              },
+            },
+          });
+
+        if (signUpError) throw signUpError;
+        if (!authData.user) throw new Error("User creation failed");
+
+        console.log("User created:", authData.user);
+
+        // Create profile with role
         const profileData: any = {
-          id: data.user?.id,
+          id: authData.user.id,
           full_name: fullName,
           role: selectedRole,
-          email
+          email: email,
         };
 
-        if (selectedRole === 'student') {
+        if (selectedRole === "student") {
           profileData.student_id = studentId;
           profileData.department = department;
           profileData.year = year;
-        } else if (selectedRole === 'counsellor') {
+        } else if (selectedRole === "counsellor") {
           profileData.license_number = licenseNumber;
           profileData.specialization = specialization;
-        } else if (selectedRole === 'administrator') {
-          if (adminCode !== 'ADMIN2024') {
-            throw new Error('Invalid administrator code');
-          }
         }
 
-        await supabase.from('profiles').insert([profileData]);
+        console.log("Creating profile with data:", profileData);
 
-        setSuccess('Account created successfully! Please check your email to verify your account.');
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert([profileData]);
+
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+          throw new Error(`Failed to create profile: ${profileError.message}`);
+        }
+
+        console.log("Profile created successfully");
+
+        setSuccess(
+          "Account created successfully! Please check your email to verify your account, then you can log in."
+        );
+        toast.success("Account created! Please verify your email.");
+
+        setTimeout(() => {
+          setIsLogin(true);
+          resetForm();
+        }, 2000);
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
+      console.error("Auth error:", err);
+      setError(err.message || "An error occurred. Please try again.");
+      toast.error(err.message || "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
   const resetForm = () => {
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setFullName('');
-    setStudentId('');
-    setDepartment('');
-    setYear('');
-    setLicenseNumber('');
-    setSpecialization('');
-    setAdminCode('');
-    setError('');
-    setSuccess('');
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setFullName("");
+    setStudentId("");
+    setDepartment("");
+    setYear("");
+    setLicenseNumber("");
+    setSpecialization("");
+    setAdminCode("");
+    setError("");
+    setSuccess("");
   };
 
   return (
@@ -163,42 +231,64 @@ const Login = () => {
             </div>
             <h1 className="text-4xl font-bold text-foreground">Mann Mitra</h1>
           </div>
-          <p className="text-muted-foreground text-lg">Your Mental Health Companion</p>
+          <p className="text-muted-foreground text-lg">
+            Your Mental Health Companion
+          </p>
         </div>
 
         <Card className="shadow-2xl">
           <CardHeader>
             <CardTitle className="text-2xl text-center">
-              {isLogin ? 'Welcome Back' : 'Create Account'}
+              {isLogin ? "Welcome Back" : "Create Account"}
             </CardTitle>
             <CardDescription className="text-center">
-              {isLogin ? 'Sign in to continue your wellness journey' : 'Join us to start your wellness journey'}
+              {isLogin
+                ? "Sign in to continue your wellness journey"
+                : "Join us to start your wellness journey"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {/* Role Selection */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-foreground mb-3">Select Your Role</label>
+              <label className="block text-sm font-medium text-foreground mb-3">
+                {isLogin
+                  ? "Select Your Role to Login"
+                  : "Select Your Role to Sign Up"}
+              </label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(['student', 'counsellor', 'administrator'] as UserRole[]).map((role) => (
+                {(
+                  ["student", "counsellor", "administrator"] as UserRole[]
+                ).map((role) => (
                   <button
                     key={role}
                     type="button"
                     onClick={() => {
                       setSelectedRole(role);
-                      resetForm();
+                      if (isLogin) {
+                        setError("");
+                      } else {
+                        resetForm();
+                      }
                     }}
                     className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
                       selectedRole === role
-                        ? 'border-garden-blue bg-garden-blue/10'
-                        : 'border-border bg-card'
+                        ? "border-garden-blue bg-garden-blue/10"
+                        : "border-border bg-card"
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <div className={selectedRole === role ? 'text-garden-blue' : 'text-muted-foreground'}>
+                      <div
+                        className={
+                          selectedRole === role
+                            ? "text-garden-blue"
+                            : "text-muted-foreground"
+                        }
+                      >
                         {roleIcons[role]}
                       </div>
-                      <span className="font-semibold text-foreground capitalize">{role}</span>
+                      <span className="font-semibold text-foreground capitalize">
+                        {role}
+                      </span>
                       <span className="text-xs text-muted-foreground text-center">
                         {roleDescriptions[role]}
                       </span>
@@ -211,12 +301,16 @@ const Login = () => {
             {/* Error/Success Messages */}
             {error && (
               <Alert className="mb-4 border-destructive bg-destructive/10">
-                <AlertDescription className="text-destructive">{error}</AlertDescription>
+                <AlertDescription className="text-destructive">
+                  {error}
+                </AlertDescription>
               </Alert>
             )}
             {success && (
               <Alert className="mb-4 border-success bg-success/10">
-                <AlertDescription className="text-success">{success}</AlertDescription>
+                <AlertDescription className="text-success">
+                  {success}
+                </AlertDescription>
               </Alert>
             )}
 
@@ -224,7 +318,9 @@ const Login = () => {
             <div className="space-y-4">
               {!isLogin && (
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Full Name</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Full Name
+                  </label>
                   <Input
                     type="text"
                     value={fullName}
@@ -235,7 +331,9 @@ const Login = () => {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Email</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Email
+                </label>
                 <Input
                   type="email"
                   value={email}
@@ -245,10 +343,12 @@ const Login = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Password</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Password
+                </label>
                 <div className="relative">
                   <Input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
@@ -258,14 +358,20 @@ const Login = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
               {!isLogin && (
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Confirm Password</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Confirm Password
+                  </label>
                   <Input
                     type="password"
                     value={confirmPassword}
@@ -276,39 +382,50 @@ const Login = () => {
               )}
 
               {/* Student Fields */}
-              {!isLogin && selectedRole === 'student' && (
+              {!isLogin && selectedRole === "student" && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Student ID</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Student ID *
+                    </label>
                     <Input
                       type="text"
                       value={studentId}
                       onChange={(e) => setStudentId(e.target.value)}
                       placeholder="Enter your student ID"
+                      required
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">Department</label>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Department *
+                      </label>
                       <select
                         value={department}
                         onChange={(e) => setDepartment(e.target.value)}
                         className="w-full px-3 py-2 rounded-md bg-background border border-input text-foreground h-10"
+                        required
                       >
                         <option value="">Select department</option>
                         <option value="Computer Science">Computer Science</option>
                         <option value="Engineering">Engineering</option>
                         <option value="Business">Business</option>
-                        <option value="Arts & Humanities">Arts & Humanities</option>
+                        <option value="Arts & Humanities">
+                          Arts & Humanities
+                        </option>
                         <option value="Science">Science</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">Year</label>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Year *
+                      </label>
                       <select
                         value={year}
                         onChange={(e) => setYear(e.target.value)}
                         className="w-full px-3 py-2 rounded-md bg-background border border-input text-foreground h-10"
+                        required
                       >
                         <option value="">Select year</option>
                         <option value="1st Year">1st Year</option>
@@ -322,53 +439,71 @@ const Login = () => {
               )}
 
               {/* Counsellor Fields */}
-              {!isLogin && selectedRole === 'counsellor' && (
+              {!isLogin && selectedRole === "counsellor" && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">License Number</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      License Number *
+                    </label>
                     <Input
                       type="text"
                       value={licenseNumber}
                       onChange={(e) => setLicenseNumber(e.target.value)}
                       placeholder="Enter your professional license number"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Specialization</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Specialization *
+                    </label>
                     <select
                       value={specialization}
                       onChange={(e) => setSpecialization(e.target.value)}
                       className="w-full px-3 py-2 rounded-md bg-background border border-input text-foreground h-10"
+                      required
                     >
                       <option value="">Select specialization</option>
-                      <option value="Anxiety & Depression">Anxiety & Depression</option>
-                      <option value="Stress Management">Stress Management</option>
+                      <option value="Anxiety & Depression">
+                        Anxiety & Depression
+                      </option>
+                      <option value="Stress Management">
+                        Stress Management
+                      </option>
                       <option value="Academic Stress">Academic Stress</option>
-                      <option value="Relationship Counseling">Relationship Counseling</option>
-                      <option value="General Counseling">General Counseling</option>
+                      <option value="Relationship Counseling">
+                        Relationship Counseling
+                      </option>
+                      <option value="General Counseling">
+                        General Counseling
+                      </option>
                     </select>
                   </div>
                 </>
               )}
 
               {/* Administrator Fields */}
-              {!isLogin && selectedRole === 'administrator' && (
+              {!isLogin && selectedRole === "administrator" && (
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Administrator Code</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Administrator Code *
+                  </label>
                   <Input
                     type="text"
                     value={adminCode}
                     onChange={(e) => setAdminCode(e.target.value)}
                     placeholder="Enter administrator verification code"
+                    required
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Contact system administrator for the verification code (Default: ADMIN2024)
+                    Contact system administrator for the verification code
+                    (Default: ADMIN2024)
                   </p>
                 </div>
               )}
 
               <Button onClick={handleSubmit} className="w-full" disabled={loading}>
-                {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
+                {loading ? "Processing..." : isLogin ? "Sign In" : "Create Account"}
               </Button>
             </div>
 
@@ -384,7 +519,7 @@ const Login = () => {
               >
                 {isLogin
                   ? "Don't have an account? Sign up"
-                  : 'Already have an account? Sign in'}
+                  : "Already have an account? Sign in"}
               </button>
             </div>
 
@@ -402,7 +537,10 @@ const Login = () => {
         </Card>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>By continuing, you agree to Mann Mitra's Terms of Service and Privacy Policy</p>
+          <p>
+            By continuing, you agree to Mann Mitra's Terms of Service and Privacy
+            Policy
+          </p>
         </div>
       </div>
     </div>
