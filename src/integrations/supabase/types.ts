@@ -7,14 +7,53 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          id: string
+          full_name: string | null
+          email: string | null
+          role: 'student' | 'counsellor' | 'administrator' | null
+          student_id: string | null
+          department: string | null
+          year: string | null
+          license_number: string | null
+          specialization: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          full_name?: string | null
+          email?: string | null
+          role?: 'student' | 'counsellor' | 'administrator' | null
+          student_id?: string | null
+          department?: string | null
+          year?: string | null
+          license_number?: string | null
+          specialization?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          full_name?: string | null
+          email?: string | null
+          role?: 'student' | 'counsellor' | 'administrator' | null
+          student_id?: string | null
+          department?: string | null
+          year?: string | null
+          license_number?: string | null
+          specialization?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -63,6 +102,7 @@ export type Tables<
       ? R
       : never
     : never
+
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
