@@ -22,6 +22,20 @@ import Settings from "./pages/Settings";
 import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 
+// Counsellor Pages
+import CounsellorClients from "./pages/counsellor/CounsellorClients";
+import CounsellorAppointments from "./pages/counsellor/CounsellorAppointments";
+import CounsellorNotes from "./pages/counsellor/CounsellorNotes";
+import CounsellorProgress from "./pages/counsellor/CounsellorProgress";
+import CounsellorSchedule from "./pages/counsellor/CounsellorSchedule";
+
+// Admin Pages
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminCounsellorReview from "./pages/admin/AdminCounsellorReview";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminReports from "./pages/admin/AdminReports";
+import AdminSystemSettings from "./pages/admin/AdminSystemSettings";
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -71,18 +85,36 @@ const App = () => {
                     <Sidebar />
                     <main className="ml-64 mt-16 p-8">
                       <Routes>
+                        {/* Common Routes */}
                         <Route path="/" element={<Dashboard />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/resources" element={<Resources />} />
+                        
+                        {/* Student Routes */}
                         <Route path="/mood-garden" element={<MoodGarden />} />
                         <Route path="/ai-support" element={<AISupport />} />
                         <Route path="/book-session" element={<BookSession />} />
-                        <Route path="/campus-pulse" element={<CampusPulse />} />
                         <Route path="/study-buddy" element={<StudyBuddy />} />
-                        <Route path="/resources" element={<Resources />} />
                         <Route path="/peer-support" element={<PeerSupport />} />
                         <Route path="/wellness-tools" element={<WellnessTools />} />
-                        <Route path="/profile" element={<Profile />} />
-                        <Route path="/settings" element={<Settings />} />
                         <Route path="/history" element={<History />} />
+                        
+                        {/* Counsellor Routes */}
+                        <Route path="/counsellor/clients" element={<CounsellorClients />} />
+                        <Route path="/counsellor/appointments" element={<CounsellorAppointments />} />
+                        <Route path="/counsellor/notes" element={<CounsellorNotes />} />
+                        <Route path="/counsellor/progress" element={<CounsellorProgress />} />
+                        <Route path="/counsellor/schedule" element={<CounsellorSchedule />} />
+                        
+                        {/* Admin Routes */}
+                        <Route path="/campus-pulse" element={<CampusPulse />} />
+                        <Route path="/admin/users" element={<AdminUsers />} />
+                        <Route path="/admin/counsellor-review" element={<AdminCounsellorReview />} />
+                        <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                        <Route path="/admin/reports" element={<AdminReports />} />
+                        <Route path="/admin/system-settings" element={<AdminSystemSettings />} />
+                        
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </main>
