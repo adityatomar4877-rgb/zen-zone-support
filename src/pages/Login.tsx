@@ -87,15 +87,21 @@ const Login = () => {
 
       if (isLogin) {
         // LOGIN FLOW
+        console.log("=== LOGIN FLOW ===");
+        console.log("Attempting login with role:", selectedRole);
+        
         const { data: authData, error: signInError } =
           await supabase.auth.signInWithPassword({
             email,
             password,
           });
 
-        if (signInError) throw signInError;
+        if (signInError) {
+          console.error("Sign in error:", signInError);
+          throw signInError;
+        }
 
-        console.log("Login successful, user:", authData.user);
+        console.log("Login successful, user ID:", authData.user.id);
 
         // Verify user role matches selected role
         const { data: profile, error: profileError } = await supabase
@@ -104,29 +110,41 @@ const Login = () => {
           .eq("id", authData.user.id)
           .single();
 
-        console.log("Profile check:", profile, "Error:", profileError);
+        console.log("Profile check - data:", profile);
+        console.log("Profile check - error:", profileError);
 
-        if (profile && profile.role !== selectedRole) {
+        if (profileError) {
+          console.error("Profile fetch error:", profileError);
+          throw new Error("Failed to fetch user profile. Please contact support.");
+        }
+
+        if (!profile) {
+          await supabase.auth.signOut();
+          throw new Error("User profile not found. Please contact support.");
+        }
+
+        if (profile.role !== selectedRole) {
+          console.log(`Role mismatch: expected ${selectedRole}, got ${profile.role}`);
           await supabase.auth.signOut();
           throw new Error(
-            `Invalid credentials for ${selectedRole} role. Please select the correct role.`
+            `Invalid credentials for ${selectedRole} role. Please select the correct role (${profile.role}).`
           );
         }
 
+        console.log("Role verification successful:", profile.role);
         toast.success("Login successful!");
 
+        // Navigate based on role
         setTimeout(() => {
-          if (profile?.role === "administrator") {
-            navigate("/admin-dashboard");
-          } else if (profile?.role === "counsellor") {
-            navigate("/counsellor-dashboard");
-          } else {
-            navigate("/student-dashboard");
-          }
-        }, 1000);
+          navigate("/");
+        }, 500);
+        
       } else {
         // SIGNUP FLOW
+        console.log("=== SIGNUP FLOW ===");
+        console.log("Creating account with role:", selectedRole);
 
+        // Validate role-specific fields
         if (selectedRole === "administrator" && adminCode !== "ADMIN2024") {
           throw new Error("Invalid administrator code");
         }
@@ -141,6 +159,11 @@ const Login = () => {
           }
         }
 
+        if (!fullName) {
+          throw new Error("Please enter your full name");
+        }
+
+        // Create auth user
         const { data: authData, error: signUpError } =
           await supabase.auth.signUp({
             email,
@@ -152,46 +175,60 @@ const Login = () => {
             },
           });
 
-        if (signUpError) throw signUpError;
-        if (!authData.user) throw new Error("User creation failed");
+        if (signUpError) {
+          console.error("Sign up error:", signUpError);
+          throw signUpError;
+        }
+        
+        if (!authData.user) {
+          throw new Error("User creation failed");
+        }
 
-        console.log("User created:", authData.user);
+        console.log("User created successfully, ID:", authData.user.id);
 
-        // Create profile with role
+        // Create profile with role-specific data
         const profileData: any = {
           id: authData.user.id,
           full_name: fullName,
-          role: selectedRole,
+          role: selectedRole, // CRITICAL: Set the role
           email: email,
         };
 
+        // Add role-specific fields
         if (selectedRole === "student") {
           profileData.student_id = studentId;
           profileData.department = department;
           profileData.year = year;
+          console.log("Adding student data:", { studentId, department, year });
         } else if (selectedRole === "counsellor") {
           profileData.license_number = licenseNumber;
           profileData.specialization = specialization;
+          console.log("Adding counsellor data:", { licenseNumber, specialization });
         }
 
         console.log("Creating profile with data:", profileData);
 
-        const { error: profileError } = await supabase
+        const { data: insertedProfile, error: profileError } = await supabase
           .from("profiles")
-          .insert([profileData]);
+          .insert([profileData])
+          .select()
+          .single();
 
         if (profileError) {
           console.error("Profile creation error:", profileError);
+          // Try to clean up the auth user if profile creation fails
+          await supabase.auth.admin.deleteUser(authData.user.id);
           throw new Error(`Failed to create profile: ${profileError.message}`);
         }
 
-        console.log("Profile created successfully");
+        console.log("Profile created successfully:", insertedProfile);
 
         setSuccess(
           "Account created successfully! Please check your email to verify your account, then you can log in."
         );
         toast.success("Account created! Please verify your email.");
 
+        // Reset form and switch to login
         setTimeout(() => {
           setIsLogin(true);
           resetForm();
